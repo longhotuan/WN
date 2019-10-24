@@ -19,9 +19,11 @@ library(rsconnect)
 library(DT)
 library(usethis)
 
-Water_Nexus <- read.csv('Water_Nexus.csv',encoding = "UTF8")
+Water_Nexus <- read.csv('WN_v3.csv',encoding = "UTF8")
 levels(Water_Nexus$TYPOLOGY)[2] <- "Contributions to specific-purpose programs"
 levels(Water_Nexus$TYPOLOGY)[3] <- "Core support to NGOs and other organizations"
+
+
 
 #### ui #####
 
@@ -47,7 +49,7 @@ ui <- dashboardPage(
                                      tabName = "budget",
                                      icon = icon("euro-sign")),
                             selectInput(inputId = "country", label = "Select a country", 
-                                        choices = c(All = "All",levels(Water_Nexus$COUNTRY))),
+                                        choices = c(All = "All", "Partner countries", levels(as.factor(Water_Nexus$COUNTRY)))),
                             selectInput(inputId = "year", label = "Select the first year",
                                         choices = c(All = "All",levels(as.factor(Water_Nexus$X1st.year.exp))))
                 )
@@ -175,9 +177,11 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
         # Setting reactivities ####
         df <- reactive({Water_Nexus})
+        
         df_country <- reactive({
                 input$country
         })
+        
         observe({
                 updateSelectInput(session, inputId = "year",label = "Select the first year",
                                   choices = c(All = "All", levels(as.factor(df()$X1st.year.exp[df()$COUNTRY == df_country()]))))
@@ -271,7 +275,7 @@ server <- function(input, output, session) {
                                 selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
                         }
                 }
-                selectedData <- selectedData %>% select(TITLE_ENG, COUNTRY, COOPERATION, CONTRACTOR, TOTAL_BUDGET, TOP.SECTOR, X1st.year.exp,last.year.exp)
+                selectedData <- selectedData %>% select(TITLE_ENG, COUNTRY2, COOPERATION, CONTRACTOR, TOTAL_BUDGET, TOP.SECTOR, X1st.year.exp,last.year.exp)
                 colnames(selectedData) <- c("Title", "Funded countries", "Cooperation", "Contractors", "Budget", "Sector", "First year", "Last year")
                 DT::datatable(selectedData, 
                               filter="top", 
