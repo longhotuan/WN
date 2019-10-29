@@ -166,6 +166,19 @@ ui <- dashboardPage(
                                                    style = "max-width:50%",
                                                    src = "Logo.jpg") 
                                         )
+                                ),
+                                fluidRow(
+                                        column(6,
+                                               h2("Through"),
+                                               box(
+                                                       img(style = "max-width:100%",
+                                                           src = "Logo3.jpg")
+                                               ),
+                                               box(
+                                                       img(style = "max-width:100%",
+                                                           src = "Logo4.png")
+                                               )
+                                        )
                                 )
                         ) # end about tabItem
                 ) # end tabItems
