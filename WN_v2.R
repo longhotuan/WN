@@ -108,7 +108,7 @@ ui <- dashboardPage(
                                         )
                                 ),
                                 fluidRow(
-                                        box(title = "Funding revolution", width = 12,
+                                        box(title = "Funding evolution", width = 12,
                                             plotlyOutput("allocation")
                                         )
                                 )
@@ -148,7 +148,7 @@ ui <- dashboardPage(
                                             hr(),
                                             h3("Dataset of Directorate-General for Development Cooperation and Humanitarian Aid"),
                                             br(),
-                                            h4("The dataset of Directorate-General for Development Cooperation and Humanitarian Aid (DGD) contains 12550 projects in total from 1987 to 2018. The dataset mainly focuses on projects in the water sector. As such, projects related to including environment, agriculture, fisheries, forestry, and hydroelectricity are also included. The dataset includes 191 attributes which are characteristics of any projects that have cooperation with DGD. The attributes cover from basic information of the projects, e.g. title, year, period, etc., to specific properties of the projects, i.e. scale of their involvement with respect to Sustainable Development Goals (SDGs), target groups, reached results, etc."),
+                                            h4("The dataset of Directorate-General for Development Cooperation and Humanitarian Aid (DGD) documents the 12.550 projects (co-)funded by DGD from 1987 to 2018. The dataset focuses on projects working in the water sector which can involve in multidisciplinary themes. Hence, projects with themes related environment, agriculture, fisheries, forestry, and hydroelectricity are included in the dataset. The dataset contains in total 191 attributes which are characteristics of any projects that have cooperation with DGD. The attributes cover from basic information of the projects, e.g. title, year, period, etc., to specific properties of the projects, i.e. scale of their involvement with respect to Sustainable Development Goals (SDGs), target groups, reached results, etc. However, due to substantial missing values, only main attributes are exploited in this dashboard."),
                                             br(),
                                             h4("Besides this dataset, a broader database that includes projects funded by other funding organizations, such as VLIR-UOS, ARES, VPWvO, Enabel, etc., is being developed. If you want to add the information about the projects funded/implemented by your organisation, please send us an email to: ",
                                                a("waternexusbelgium@gmail.com",
@@ -221,7 +221,7 @@ server <- function(input, output, session) {
                 }
                 valueBox(
                         value = nrow(selectedData),
-                        subtitle = "Total project",
+                        subtitle = "Total number of project",
                         icon = icon("list-ol"), 
                         color = "purple"
                 )
@@ -242,8 +242,8 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = sum(selectedData$TOTAL_BUDGET, na.rm = TRUE),
-                        subtitle = "Total budget (euros)", 
+                        value = prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = "."),
+                        subtitle = "Total budget (in EUR)", 
                         icon = icon("euro-sign"), 
                         color = "yellow"
                 )
@@ -289,14 +289,17 @@ server <- function(input, output, session) {
                         }
                 }
                 selectedData <- selectedData %>% select(TITLE_ENG, COUNTRY2, COOPERATION, CONTRACTOR, TOTAL_BUDGET, TOP.SECTOR, X1st.year.exp,last.year.exp)
-                colnames(selectedData) <- c("Title", "Funded countries", "Cooperation", "Contractors", "Budget", "Sector", "First year", "Last year")
+                colnames(selectedData) <- c("Title", "Funded countries", "Cooperation", "Contractors", "Budget (in EUR)", "Sector", "First year", "Last year")
+                # selectedData$`Budget (in EUR)` <- as.numeric(selectedData$`Budget (in EUR)`)
                 DT::datatable(selectedData, 
                               filter="top", 
                               selection="multiple", 
                               escape=FALSE, 
                               extensions = 'Buttons',
-                              options = list(sDom  = '<"top"pB>t<"bottom"i>r', pageLength = 5, 
-                                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+                              options = list(sDom  = '<"top"pB>t<"bottom"i>r', 
+                                             pageLength = 5, 
+                                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) %>% formatCurrency(5, currency = "", mark = ".", digits = 0)
+                
                               
         })
         # Output map ####
@@ -375,7 +378,7 @@ server <- function(input, output, session) {
                 }
                 valueBox(
                         value = nrow(selectedData),
-                        subtitle = "Total project",
+                        subtitle = "Total number of project",
                         icon = icon("list-ol"), 
                         color = "purple"
                 )
@@ -396,8 +399,8 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = sum(selectedData$TOTAL_BUDGET, na.rm = TRUE),
-                        subtitle = "Total budget (euros)", 
+                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = "."),
+                        subtitle = "Total budget (in EUR)", 
                         icon = icon("euro-sign"), 
                         color = "yellow"
                 )
@@ -442,7 +445,7 @@ server <- function(input, output, session) {
                 }
                 valueBox(
                         value = nrow(selectedData),
-                        subtitle = "Total project",
+                        subtitle = "Total number of project",
                         icon = icon("list-ol"), 
                         color = "purple"
                 )
@@ -463,8 +466,8 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = sum(selectedData$TOTAL_BUDGET, na.rm = TRUE),
-                        subtitle = "Total budget (euros)", 
+                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = "."),
+                        subtitle = "Total budget (in EUR)", 
                         icon = icon("euro-sign"), 
                         color = "yellow"
                 )
@@ -509,7 +512,7 @@ server <- function(input, output, session) {
                 }
                 valueBox(
                         value = nrow(selectedData),
-                        subtitle = "Total project",
+                        subtitle = "Total number of project",
                         icon = icon("list-ol"), 
                         color = "purple"
                 )
@@ -530,8 +533,8 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = sum(selectedData$TOTAL_BUDGET, na.rm = TRUE),
-                        subtitle = "Total budget (euros)", 
+                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = "."),
+                        subtitle = "Total budget (in EUR)", 
                         icon = icon("euro-sign"), 
                         color = "yellow"
                 )
@@ -638,7 +641,7 @@ server <- function(input, output, session) {
                                 xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
                                 yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
         })
-        # Output funding revolution ####
+        # Output funding evolution ####
         output$allocation <-renderPlotly({
                 selectedData <- df()
                 if (df_country() == "All"){
@@ -662,7 +665,7 @@ server <- function(input, output, session) {
                                  geom_line(size = 1.1125)+
                                  theme_bw() +
                                  xlab("Year") +
-                                 ylab("Budget allocation (euros)") +
+                                 ylab("Budget allocation (in EUR)") +
                                  theme(text=element_text(family = "Arial")) +
                                  theme(axis.text.x = element_text(size = 9)) +
                                  theme(axis.text.y = element_text(size = 9)) +
