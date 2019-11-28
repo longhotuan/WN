@@ -19,9 +19,9 @@ library(rsconnect)
 library(DT)
 library(usethis)
 
-Water_Nexus <- read.csv('WN_v3.csv',encoding = "UTF8")
-levels(Water_Nexus$TYPOLOGY)[2] <- "Contributions to specific-purpose programs"
-levels(Water_Nexus$TYPOLOGY)[3] <- "Core support to NGOs and other organizations"
+water_nexus <- read.csv('WN_v3.csv',encoding = "UTF8")
+levels(water_nexus$TYPOLOGY)[2] <- "Contributions to specific-purpose programs"
+levels(water_nexus$TYPOLOGY)[3] <- "Core support to NGOs and other organizations"
 
 
 
@@ -49,9 +49,9 @@ ui <- dashboardPage(
                                      tabName = "budget",
                                      icon = icon("euro-sign")),
                             selectInput(inputId = "country", label = "Select a country", 
-                                        choices = c(All = "All", "Partner countries", levels(as.factor(Water_Nexus$COUNTRY)))),
+                                        choices = c(All = "All", "Partner countries", levels(as.factor(water_nexus$COUNTRY)))),
                             selectInput(inputId = "year", label = "Select the first year",
-                                        choices = c(All = "All",levels(as.factor(Water_Nexus$X1st.year.exp))))
+                                        choices = c(All = "All",levels(as.factor(water_nexus$X1st.year.exp))))
                 )
         ),
         # Dashboard body #### 
@@ -90,7 +90,7 @@ ui <- dashboardPage(
                                         )
                                 ),
                                 fluidRow(
-                                        box(title = "Contractors", width = 12,
+                                        box(title = "ODA-eligible Organisations", width = 12,
                                             plotlyOutput("contractor")
                                         )
                                 )
@@ -148,7 +148,7 @@ ui <- dashboardPage(
                                             hr(),
                                             h3("Dataset of Directorate-General for Development Cooperation and Humanitarian Aid"),
                                             br(),
-                                            h4("The dataset of Directorate-General for Development Cooperation and Humanitarian Aid (DGD) documents the 12.550 projects (co-)funded by DGD from 1987 to 2018. The dataset focuses on projects working in the water sector which can involve in multidisciplinary themes. Hence, projects with themes related environment, agriculture, fisheries, forestry, and hydroelectricity are included in the dataset. The dataset contains in total 191 attributes which are characteristics of any projects that have cooperation with DGD. The attributes cover from basic information of the projects, e.g. title, year, period, etc., to specific properties of the projects, i.e. scale of their involvement with respect to Sustainable Development Goals (SDGs), target groups, reached results, etc. However, due to substantial missing values, only main attributes are exploited in this dashboard."),
+                                            h4("The dataset of Directorate-General for Development Cooperation and Humanitarian Aid (DGD) documents the 12.550 projects involved in the Belgian ODA flows from 1987 to 2018. The dataset focuses on projects working in the water sector which can involve in multidisciplinary themes. Hence, projects with themes related environment, agriculture, fisheries, forestry, and hydroelectricity are included in the dataset. The dataset contains in total 191 attributes which are characteristics of any projects that have cooperation with DGD. The attributes cover from basic information of the projects, e.g. title, year, period, etc., to specific properties of the projects, i.e. scale of their involvement with respect to Sustainable Development Goals (SDGs), target groups, reached results, etc. However, due to substantial missing values, only main attributes are exploited in this dashboard."),
                                             br(),
                                             h4("Besides this dataset, a broader database that includes projects funded by other funding organizations, such as VLIR-UOS, ARES, VPWvO, Enabel, etc., is being developed. If you want to add the information about the projects funded/implemented by your organisation, please send us an email to: ",
                                                a("waternexusbelgium@gmail.com",
@@ -189,7 +189,7 @@ ui <- dashboardPage(
 
 server <- function(input, output, session) {
         # Setting reactivities ####
-        df <- reactive({Water_Nexus})
+        df <- reactive({water_nexus})
         
         df_country <- reactive({
                 input$country
@@ -242,7 +242,7 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = "."),
+                        value = prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
                         subtitle = "Total budget (in EUR)", 
                         icon = icon("euro-sign"), 
                         color = "yellow"
@@ -288,17 +288,18 @@ server <- function(input, output, session) {
                                 selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
                         }
                 }
-                selectedData <- selectedData %>% select(TITLE_ENG, COUNTRY2, COOPERATION, CONTRACTOR, TOTAL_BUDGET, TOP.SECTOR, X1st.year.exp,last.year.exp)
-                colnames(selectedData) <- c("Title", "Funded countries", "Cooperation", "Contractors", "Budget (in EUR)", "Sector", "First year", "Last year")
+                selectedData <- selectedData %>% select(INTE_ID, TITLE_ENG, COUNTRY2, COOPERATION, CONTRACTOR, TOTAL_BUDGET, TOP.SECTOR, X1st.year.exp,last.year.exp)
+                colnames(selectedData) <- c("Project ID", "Title", "Funded countries", "Cooperation", "Contractors", "Budget (in EUR)", "Sector", "First year", "Last year")
                 # selectedData$`Budget (in EUR)` <- as.numeric(selectedData$`Budget (in EUR)`)
                 DT::datatable(selectedData, 
+                              rownames = FALSE,
                               filter="top", 
                               selection="multiple", 
                               escape=FALSE, 
                               extensions = 'Buttons',
                               options = list(sDom  = '<"top"pB>t<"bottom"i>r', 
                                              pageLength = 5, 
-                                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) %>% formatCurrency(5, currency = "", mark = ".", digits = 0)
+                                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) %>% formatCurrency(5, currency = "", digits = 2)
                 
                               
         })
@@ -399,7 +400,7 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = "."),
+                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
                         subtitle = "Total budget (in EUR)", 
                         icon = icon("euro-sign"), 
                         color = "yellow"
@@ -466,7 +467,7 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = "."),
+                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
                         subtitle = "Total budget (in EUR)", 
                         icon = icon("euro-sign"), 
                         color = "yellow"
@@ -533,7 +534,7 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = "."),
+                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
                         subtitle = "Total budget (in EUR)", 
                         icon = icon("euro-sign"), 
                         color = "yellow"
