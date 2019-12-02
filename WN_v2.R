@@ -50,8 +50,11 @@ ui <- dashboardPage(
                                      icon = icon("euro-sign")),
                             selectInput(inputId = "country", label = "Select a country", 
                                         choices = c(All = "All", "Partner countries", levels(as.factor(water_nexus$COUNTRY)))),
-                            selectInput(inputId = "year", label = "Select the first year",
-                                        choices = c(All = "All",levels(as.factor(water_nexus$X1st.year.exp))))
+                            selectInput(inputId = "year", label = "Select a year",
+                                        choices = c(All = "All",
+                                                    choices = c(All = "All",seq.int(min(water_nexus$X1st.year.exp, na.rm = TRUE), 
+                                                                                    max(water_nexus$last.year.exp, na.rm = TRUE)))
+                                                    ))
                 )
         ),
         # Dashboard body #### 
@@ -195,10 +198,17 @@ server <- function(input, output, session) {
                 input$country
         })
         
-        observe({
-                updateSelectInput(session, inputId = "year",label = "Select the first year",
-                                  choices = c(All = "All", levels(as.factor(df()$X1st.year.exp[df()$COUNTRY == df_country()]))))
-        })
+        # df_year_list <- reactive({
+        #         c(df()$X1st.year.exp[df()$COUNTRY == df_country()], df()$last.year.exp[df()$COUNTRY == df_country()])
+        # })
+        # 
+        # observe({
+        #         updateSelectInput(session, inputId = "year",label = "Select a year",
+        #                           choices = c(All = "All", seq.int(min(df_year_list(), na.rm = TRUE), 
+        #                                                           max(df_year_list(), na.rm = TRUE))))
+        # })
+        #### Problems related to NA values (from here 2/12/19) ####
+        
         df_year <- reactive({
                 input$year
         })
@@ -210,13 +220,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -232,13 +242,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -254,13 +264,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -279,13 +289,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 selectedData <- selectedData %>% select(INTE_ID, TITLE_ENG, COUNTRY2, COOPERATION, CONTRACTOR, TOTAL_BUDGET, TOP.SECTOR, X1st.year.exp,last.year.exp)
@@ -310,15 +320,15 @@ server <- function(input, output, session) {
                 WN_leaflet <- df()
                 if (df_country() == "All"){
                         if (df_year() == "All") {
-                                WN_leaflet <- df()
+                                selectedData <- df()
                         } else {
-                                WN_leaflet <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
-                                WN_leaflet <- df() %>% filter(COUNTRY == df_country())
+                                selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                WN_leaflet <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 WN_leaflet_2 <- WN_leaflet %>%
@@ -347,7 +357,7 @@ server <- function(input, output, session) {
                                 selectedData <- df() %>% group_by(!!x) %>% summarise(Count = n()) %>%
                                         arrange(desc(Count)) %>% ungroup()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year()) %>% group_by(!!x) %>%
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp)) %>% group_by(!!x) %>%
                                         summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
                         }
                 } else {
@@ -355,7 +365,7 @@ server <- function(input, output, session) {
                                 selectedData <- df() %>% filter(COUNTRY == df_country()) %>% group_by(!!x) %>%
                                         summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year()) %>%
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp)) %>%
                                         group_by(!!x) %>% summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
                         }
                 }
@@ -368,13 +378,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -390,13 +400,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -412,13 +422,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -435,13 +445,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -457,13 +467,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -479,13 +489,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -502,13 +512,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -524,13 +534,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -546,13 +556,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 valueBox(
@@ -649,13 +659,13 @@ server <- function(input, output, session) {
                         if (df_year() == "All") {
                                 selectedData <- df()
                         } else {
-                                selectedData <- df() %>% filter(X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 } else {
                         if (df_year() == "All") {
                                 selectedData <- df() %>% filter(COUNTRY == df_country())
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & X1st.year.exp == df_year())
+                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
                         }
                 }
                 allocation <- aggregate(TOTAL_BUDGET~X1st.year.exp+BUDGETHOLDER, data = selectedData, sum)
