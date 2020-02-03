@@ -18,12 +18,24 @@ library(RColorBrewer)
 library(rsconnect)
 library(DT)
 library(usethis)
+library(feather)
 
-water_nexus <- read.csv('WN_v3.csv',encoding = "UTF8")
-levels(water_nexus$TYPOLOGY)[2] <- "Contributions to specific-purpose programs"
-levels(water_nexus$TYPOLOGY)[3] <- "Core support to NGOs and other organizations"
+water_nexus <- read_feather("dgd_min.feather")
 
-
+first_country <- which(colnames(water_nexus) == 'Afghanistan')
+last_country <- which(colnames(water_nexus) == 'Palestine')
+first_lat <- which(colnames(water_nexus) == 'lat_Afghanistan')
+last_lat <- which(colnames(water_nexus) == 'lat_Palestine')
+first_long <- which(colnames(water_nexus) == 'long_Afghanistan')
+last_long <- which(colnames(water_nexus) == 'long_Palestine')
+first_year <- which(colnames(water_nexus) == '2008')
+last_year <- which(colnames(water_nexus) == '2019')
+first_topsector <- which(colnames(water_nexus) == 'Agriculture, forestry, fishing')
+last_topsector <- which(colnames(water_nexus) == 'Water and sanitation')
+first_typology <- which(colnames(water_nexus) == 'Administrative costs not included elsewhere')
+last_typology <- which(colnames(water_nexus) == 'Sector budget support')
+first_sector <- which(colnames(water_nexus) == 'Agriculture and livestock - Agrarian reform')
+last_sector <- which(colnames(water_nexus) == 'Water supply and sanitation - Waste management/disposal')
 
 #### ui #####
 
@@ -39,22 +51,21 @@ ui <- dashboardPage(
                             menuItem("Project info", 
                                      tabName = "info",
                                      icon = icon("list-ol")), 
-                            menuItem("Cooperation", 
-                                     tabName = "coop",
-                                     icon = icon("handshake")),
-                            menuItem("Funding actors",
+                            # menuItem("Cooperation", 
+                            #          tabName = "coop",
+                            #          icon = icon("handshake")),
+                            menuItem("Actors",
                                      tabName="actor",
                                      icon = icon("landmark")),
                             menuItem("Budgets", 
                                      tabName = "budget",
                                      icon = icon("euro-sign")),
-                            selectInput(inputId = "country", label = "Select a country", 
-                                        choices = c(All = "All", "Partner countries", levels(as.factor(water_nexus$COUNTRY)))),
+                            selectInput(inputId = "nation", label = "Select a country", 
+                                        choices = c(All = "All", "Partner countries", colnames(water_nexus)[first_country:last_country])),
                             selectInput(inputId = "year", label = "Select a year",
-                                        choices = c(All = "All",
-                                                    choices = c(All = "All",seq.int(min(water_nexus$X1st.year.exp, na.rm = TRUE), 
-                                                                                    max(water_nexus$last.year.exp, na.rm = TRUE)))
-                                                    ))
+                                        choices = c(All = "All", colnames(water_nexus)[first_year:last_year])),
+                            selectInput(inputId = "sector", label = "Select a sector", 
+                                        choices = c(All = "All", sort(water_nexus$`TOP SECTOR`)))
                 )
         ),
         # Dashboard body #### 
@@ -91,11 +102,6 @@ ui <- dashboardPage(
                                         box(title = "Type of cooperation", width = 12,
                                             plotlyOutput("coop")
                                         )
-                                ),
-                                fluidRow(
-                                        box(title = "ODA-eligible Organisations", width = 12,
-                                            plotlyOutput("contractor")
-                                        )
                                 )
                         ), # end of cooperation tab content
                         # Actor tab content ####
@@ -108,6 +114,11 @@ ui <- dashboardPage(
                                 fluidRow(
                                         box(title = "Funding Actors", width = 12,
                                             plotlyOutput("budgetholder")
+                                        )
+                                ),
+                                fluidRow(
+                                        box(title = "Implementing organisations/channels of delivery", width = 12,
+                                            plotlyOutput("contractor")
                                         )
                                 ),
                                 fluidRow(
@@ -124,7 +135,7 @@ ui <- dashboardPage(
                                         valueBoxOutput("period3")
                                 ),
                                 fluidRow(
-                                        box(title = "Aid category", width = 12,
+                                        box(title = "Type of aid", width = 12,
                                             plotlyOutput("aid")
                                         )
                                 ),
@@ -194,497 +205,580 @@ server <- function(input, output, session) {
         # Setting reactivities ####
         df <- reactive({water_nexus})
         
-        df_country <- reactive({
-                input$country
+        #** Nation ####
+        
+        nationname <- reactive({
+                nationname <- vector(mode = 'character', length = 0)
+                for (i in first_country:last_country){
+                        if(sum(!is.na(df()[,i] > 0))){
+                                nationname <- c(nationname, colnames(df()[,i]))
+                        }
+                }
+                nationname
         })
         
-        # df_year_list <- reactive({
-        #         c(df()$X1st.year.exp[df()$COUNTRY == df_country()], df()$last.year.exp[df()$COUNTRY == df_country()])
-        # })
-        # 
-        # observe({
-        #         updateSelectInput(session, inputId = "year",label = "Select a year",
-        #                           choices = c(All = "All", seq.int(min(df_year_list(), na.rm = TRUE), 
-        #                                                           max(df_year_list(), na.rm = TRUE))))
-        # })
-        #### Problems related to NA values (from here 2/12/19) ####
+        observe({
+                updateSelectInput(session, inputId = "nation", label = "Select a country", choices = c("All", "Partner countries", sort(nationname())))
+        })
         
+        df_country <- reactive({
+                input$nation
+        })
+        
+        #** Year ####
+
+        year_name <- reactive({
+                if(df_country() == "All"){
+                        colnames(df())[first_year:last_year]
+                } else if(df_country() == "Partner countries"){
+                        m <-df()[, which(colnames(df()) %in% c("Benin", "Burkina Faso", "Burundi", "DR Congo", "Guinea", "Mali", "Morocco",
+                                                               "Mozambique", "Niger", "Uganda", "Palestine", "Rwanda", "Senegal", "Tanzania"))]
+                        year_name2 <- df()[rowSums(is.na(m)) != ncol(m), ]
+                        year_name <- vector(mode = "character", length = 0)
+                        for (i in first_year:last_year){
+                                if(sum(!is.na(year_name2[,i]))>0){
+                                        year_name <- c(year_name, colnames(year_name2[,i]))
+                                }
+                        }
+                        year_name
+                } else {
+                        year_name2 <- df()[!is.na(df()[, colnames(df()) == df_country()]),]
+                        year_name <- vector(mode = "character", length = 0)
+                        for (i in first_year:last_year){
+                                if(sum(!is.na(year_name2[,i]))>0){
+                                        year_name <- c(year_name, colnames(year_name2[,i]))
+                                }
+                        }
+                        year_name
+                }
+        })
+
+        observe({
+                updateSelectInput(session, inputId = "year", label = "Select a year", choices = c("All", sort(year_name())))
+        })
+
         df_year <- reactive({
                 input$year
         })
         
-        # Output valuebox ####
-        output$project <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
+        #** Top Sector ####
+        
+        sector_name <- reactive({
+                if(df_country() == "All"){
+                        sectorname <- df()
+                        if(df_year() == "All"){
+                                sector_name <- sectorname$`TOP SECTOR`
                         } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+                                sector_name2 <- sectorname[!is.na(sectorname[, colnames(sectorname) == df_year()]),]
+                                sector_name <- sector_name2$`TOP SECTOR`
+                                sector_name
                         }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
+                } else if(df_country() == "Partner countries"){
+                        m <-df()[, which(colnames(df()) %in% c("Benin", "Burkina Faso", "Burundi", "DR Congo", "Guinea", "Mali", "Morocco", 
+                                                               "Mozambique", "Niger", "Uganda", "Palestine", "Rwanda", "Senegal", "Tanzania"))] # choose column having the same names
+                        sectorname <- df()[rowSums(is.na(m)) != ncol(m), ] # make sure the chosen column not entire NA 
+                        sectorname <- sectorname[complete.cases(sectorname[ ,1]),] # remove the one that has NA in all row
+                        if(df_year() == "All"){
+                                sector_name <- sectorname$`TOP SECTOR`
                         } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+                                sector_name2 <- sectorname[!is.na(sectorname[, colnames(sectorname) == df_year()]),]
+                                sector_name <- sector_name2$`TOP SECTOR`
+                        }
+                        
+                } else {
+                        sectorname <- df()[!is.na(df()[, colnames(df()) == df_country()]),]
+                        if(df_year() == "All"){
+                                sector_name <- sectorname$`TOP SECTOR`
+                        } else {
+                                sector_name2 <- sectorname[!is.na(sectorname[, colnames(sectorname) == df_year()]),]
+                                sector_name <- sector_name2$`TOP SECTOR`
+                                sector_name
                         }
                 }
-                valueBox(
-                        value = nrow(selectedData),
-                        subtitle = "Total number of project",
-                        icon = icon("list-ol"), 
-                        color = "purple"
-                )
-        })
-        output$money <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value = prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
-                        subtitle = "Total budget (in EUR)", 
-                        icon = icon("euro-sign"), 
-                        color = "yellow"
-                )
-        })
-        output$period <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value = max(selectedData$last.year.exp, na.rm = TRUE) - min(selectedData$X1st.year.exp, na.rm = TRUE), 
-                        subtitle = "Total period (years)", 
-                        icon = icon("calendar"), 
-                        color = "blue"
-                )
-        })
-        # Output table  ####
-        output$table <- DT::renderDataTable(
-                server = FALSE,
-                                            {
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                selectedData <- selectedData %>% select(INTE_ID, TITLE_ENG, COUNTRY2, COOPERATION, CONTRACTOR, TOTAL_BUDGET, TOP.SECTOR, X1st.year.exp,last.year.exp)
-                colnames(selectedData) <- c("Project ID", "Title", "Funded countries", "Cooperation", "Contractors", "Budget (in EUR)", "Sector", "First year", "Last year")
-                # selectedData$`Budget (in EUR)` <- as.numeric(selectedData$`Budget (in EUR)`)
-                DT::datatable(selectedData, 
-                              rownames = FALSE,
-                              filter="top", 
-                              selection="multiple", 
-                              escape=FALSE, 
-                              extensions = 'Buttons',
-                              options = list(sDom  = '<"top"pB>t<"bottom"i>r', 
-                                             pageLength = 5, 
-                                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) %>% formatCurrency(5, currency = "", digits = 2)
-                
-                              
-        })
-        # Output map ####
-        output$map <- renderLeaflet({
-                tilesURL <- '//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
-                colors <- brewer.pal(n = 7, name = "Dark2")
-                WN_leaflet <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                WN_leaflet_2 <- WN_leaflet %>%
-                        group_by(TOP.SECTOR, COUNTRY, lat, long) %>%
-                        summarise(n=n()) %>%
-                        ungroup()
-                WN_leaflet_3 <- spread(WN_leaflet_2, key = "TOP.SECTOR", value = "n")
-                WN_leaflet_3$Total <- rowSums(subset(WN_leaflet_3, select = -c(COUNTRY, lat, long)), na.rm = TRUE)
-                
-                leaflet() %>%
-                        addTiles(tilesURL) %>%
-                        fitBounds(lng1 = -141.152344, lat1 = 55.646599, lng2 = 161.542969, lat2 = -52.194140) %>%
-                        addMinicharts(WN_leaflet_3$lat, WN_leaflet_3$long,
-                                      type = "pie",
-                                      chartdata = subset(WN_leaflet_3, select = -c(COUNTRY, lat, long, Total)),
-                                      colorPalette = colors,
-                                      width = 80 * sqrt(WN_leaflet_3$Total) / sqrt(max(WN_leaflet_3$Total)),
-                                      transitionTime = 0)
         })
         
-        # Function for choosing different country and time ####
-        all_country <- function(x){
-                x <- enquo(x)
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% group_by(!!x) %>% summarise(Count = n()) %>%
-                                        arrange(desc(Count)) %>% ungroup()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp)) %>% group_by(!!x) %>%
-                                        summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country()) %>% group_by(!!x) %>%
-                                        summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp)) %>%
-                                        group_by(!!x) %>% summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
-                        }
-                }
-                return(selectedData)
-        }
-        # Output valuebox1 ####
-        output$project1 <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value = nrow(selectedData),
-                        subtitle = "Total number of project",
-                        icon = icon("list-ol"), 
-                        color = "purple"
-                )
-        })
-        output$money1 <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
-                        subtitle = "Total budget (in EUR)", 
-                        icon = icon("euro-sign"), 
-                        color = "yellow"
-                )
-        })
-        output$period1 <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value = max(selectedData$last.year.exp, na.rm = TRUE) - min(selectedData$X1st.year.exp, na.rm = TRUE), 
-                        subtitle = "Total period (years)", 
-                        icon = icon("calendar"), 
-                        color = "blue"
-                )
-        })
-        # Output valuebox2 ####
-        output$project2 <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value = nrow(selectedData),
-                        subtitle = "Total number of project",
-                        icon = icon("list-ol"), 
-                        color = "purple"
-                )
-        })
-        output$money2 <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
-                        subtitle = "Total budget (in EUR)", 
-                        icon = icon("euro-sign"), 
-                        color = "yellow"
-                )
-        })
-        output$period2 <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value = max(selectedData$last.year.exp, na.rm = TRUE) - min(selectedData$X1st.year.exp, na.rm = TRUE), 
-                        subtitle = "Total period (years)", 
-                        icon = icon("calendar"), 
-                        color = "blue"
-                )
-        })
-        # Output valuebox3 ####
-        output$project3 <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value = nrow(selectedData),
-                        subtitle = "Total number of project",
-                        icon = icon("list-ol"), 
-                        color = "purple"
-                )
-        })
-        output$money3 <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
-                        subtitle = "Total budget (in EUR)", 
-                        icon = icon("euro-sign"), 
-                        color = "yellow"
-                )
-        })
-        output$period3 <- renderValueBox({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                valueBox(
-                        value = max(selectedData$last.year.exp, na.rm = TRUE) - min(selectedData$X1st.year.exp, na.rm = TRUE), 
-                        subtitle = "Total period (years)", 
-                        icon = icon("calendar"), 
-                        color = "blue"
-                )
-        })
-        # Output cooperation ####
-        output$coop <-renderPlotly({
-                selectedData <- all_country(COOPERATION)
-                coop <-plot_ly(selectedData,
-                               labels = ~ COOPERATION,
-                               values = ~ Count, 
-                               type ="pie",
-                               insidetextfont = list(color = "#FFFFFF"), 
-                               textfont = list(color = '#000000', size = 12)
-                ) %>%
-                        layout(
-                                legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
-                                xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-                                yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+        observe({
+                updateSelectInput(session, inputId = "sector", label = "Select a sector", choices = c("All", sort(sector_name())))
         })
         
-        # Output contractor ####
-        output$contractor <-renderPlotly({
-                selectedData <- all_country(TOP_CONTRACTOR)
-                contractor <-plot_ly(selectedData,
-                                     labels = ~ TOP_CONTRACTOR,
-                                     values = ~ Count,
-                                     type ="pie",
-                                     insidetextfont = list(color = "#FFFFFF"), 
-                                     textfont = list(color = '#000000', size = 12)
-                ) %>%
-                        layout(
-                                legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
-                                xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-                                yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+        df_sector <- reactive({
+                input$sector
         })
         
-        # Output funding ####
-        output$budgetholder <-renderPlotly({
-                selectedData <- all_country(BUDGETHOLDER)
-                budget <-plot_ly(selectedData,
-                                 labels = ~ BUDGETHOLDER,
-                                 values = ~ Count,
-                                 type ="pie",
-                                 insidetextfont = list(color = "#FFFFFF"), 
-                                 textfont = list(color = '#000000', size = 12)
-                ) %>%
-                        layout(
-                                legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
-                                xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-                                yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-                
-        })
-        
-        # Output aid ####
-        output$aid <- renderPlotly({
-                selectedData <- all_country(TYPOLOGY)
-                aid <-plot_ly(selectedData,
-                              labels = ~ TYPOLOGY,
-                              values = ~ Count,
-                              type ="pie",
-                              insidetextfont = list(color = "#FFFFFF"), 
-                              textfont = list(color = '#000000', size = 12)
-                ) %>%
-                        layout(
-                                legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
-                                xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-                                yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-        })
-        
-        # Output budget ####
-        output$budget <- renderPlotly({
-                selectedData <- all_country(BUDGET)
-                budget <-plot_ly(selectedData,
-                                 labels = ~ BUDGET,
-                                 values = ~ Count,
-                                 type ="pie",
-                                 insidetextfont = list(color = "#FFFFFF"), 
-                                 textfont = list(color = '#000000', size = 12)
-                ) %>%
-                        layout(
-                                legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
-                                xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-                                yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-        })
-        # Output funding evolution ####
-        output$allocation <-renderPlotly({
-                selectedData <- df()
-                if (df_country() == "All"){
-                        if (df_year() == "All") {
-                                selectedData <- df()
-                        } else {
-                                selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                } else {
-                        if (df_year() == "All") {
-                                selectedData <- df() %>% filter(COUNTRY == df_country())
-                        } else {
-                                selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-                        }
-                }
-                allocation <- aggregate(TOTAL_BUDGET~X1st.year.exp+BUDGETHOLDER, data = selectedData, sum)
-                colnames(allocation) <- c('Year', "Funding actors", "Budget")
-                allocation$Year <- as.factor(allocation$Year)
-                ggplotly(ggplot(allocation, aes(x = Year,  y = Budget, color = `Funding actors`, group = `Funding actors`)) +
-                                 geom_point(size = 2)+
-                                 geom_line(size = 1.1125)+
-                                 theme_bw() +
-                                 xlab("Year") +
-                                 ylab("Budget allocation (in EUR)") +
-                                 theme(text=element_text(family = "Arial")) +
-                                 theme(axis.text.x = element_text(size = 9)) +
-                                 theme(axis.text.y = element_text(size = 9)) +
-                                 theme(axis.title = element_text(size = 10)) +
-                                 theme(legend.title = element_text(size = 11)) +
-                                 theme(legend.text = element_text(size = 10))
-                         )
-        })
+        #** Type of aid 03/02/2020 #### 
+
+        # # Output valuebox ####
+        # output$project <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value = nrow(selectedData),
+        #                 subtitle = "Total number of project",
+        #                 icon = icon("list-ol"), 
+        #                 color = "purple"
+        #         )
+        # })
+        # output$money <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value = prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
+        #                 subtitle = "Total budget (in EUR)", 
+        #                 icon = icon("euro-sign"), 
+        #                 color = "yellow"
+        #         )
+        # })
+        # output$period <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value = max(selectedData$last.year.exp, na.rm = TRUE) - min(selectedData$X1st.year.exp, na.rm = TRUE), 
+        #                 subtitle = "Total period (years)", 
+        #                 icon = icon("calendar"), 
+        #                 color = "blue"
+        #         )
+        # })
+        # # Output table  ####
+        # output$table <- DT::renderDataTable(
+        #         server = FALSE,
+        #                                     {
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         selectedData <- selectedData %>% select(INTE_ID, TITLE_ENG, COUNTRY2, COOPERATION, CONTRACTOR, TOTAL_BUDGET, TOP.SECTOR, X1st.year.exp,last.year.exp)
+        #         colnames(selectedData) <- c("Project ID", "Title", "Funded countries", "Cooperation", "Contractors", "Budget (in EUR)", "Sector", "First year", "Last year")
+        #         # selectedData$`Budget (in EUR)` <- as.numeric(selectedData$`Budget (in EUR)`)
+        #         DT::datatable(selectedData, 
+        #                       rownames = FALSE,
+        #                       filter="top", 
+        #                       selection="multiple", 
+        #                       escape=FALSE, 
+        #                       extensions = 'Buttons',
+        #                       options = list(sDom  = '<"top"pB>t<"bottom"i>r', 
+        #                                      pageLength = 5, 
+        #                                      buttons = c('copy', 'csv', 'excel', 'pdf', 'print'))) %>% formatCurrency(5, currency = "", digits = 2)
+        #         
+        #                       
+        # })
+        # # Output map ####
+        # output$map <- renderLeaflet({
+        #         tilesURL <- '//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
+        #         colors <- brewer.pal(n = 7, name = "Dark2")
+        #         WN_leaflet <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         WN_leaflet_2 <- WN_leaflet %>%
+        #                 group_by(TOP.SECTOR, COUNTRY, lat, long) %>%
+        #                 summarise(n=n()) %>%
+        #                 ungroup()
+        #         WN_leaflet_3 <- spread(WN_leaflet_2, key = "TOP.SECTOR", value = "n")
+        #         WN_leaflet_3$Total <- rowSums(subset(WN_leaflet_3, select = -c(COUNTRY, lat, long)), na.rm = TRUE)
+        #         
+        #         leaflet() %>%
+        #                 addTiles(tilesURL) %>%
+        #                 fitBounds(lng1 = -141.152344, lat1 = 55.646599, lng2 = 161.542969, lat2 = -52.194140) %>%
+        #                 addMinicharts(WN_leaflet_3$lat, WN_leaflet_3$long,
+        #                               type = "pie",
+        #                               chartdata = subset(WN_leaflet_3, select = -c(COUNTRY, lat, long, Total)),
+        #                               colorPalette = colors,
+        #                               width = 80 * sqrt(WN_leaflet_3$Total) / sqrt(max(WN_leaflet_3$Total)),
+        #                               transitionTime = 0)
+        # })
+        # 
+        # # Function for choosing different country and time ####
+        # all_country <- function(x){
+        #         x <- enquo(x)
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% group_by(!!x) %>% summarise(Count = n()) %>%
+        #                                 arrange(desc(Count)) %>% ungroup()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp)) %>% group_by(!!x) %>%
+        #                                 summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country()) %>% group_by(!!x) %>%
+        #                                 summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp)) %>%
+        #                                 group_by(!!x) %>% summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
+        #                 }
+        #         }
+        #         return(selectedData)
+        # }
+        # # Output valuebox1 ####
+        # output$project1 <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value = nrow(selectedData),
+        #                 subtitle = "Total number of project",
+        #                 icon = icon("list-ol"), 
+        #                 color = "purple"
+        #         )
+        # })
+        # output$money1 <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
+        #                 subtitle = "Total budget (in EUR)", 
+        #                 icon = icon("euro-sign"), 
+        #                 color = "yellow"
+        #         )
+        # })
+        # output$period1 <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value = max(selectedData$last.year.exp, na.rm = TRUE) - min(selectedData$X1st.year.exp, na.rm = TRUE), 
+        #                 subtitle = "Total period (years)", 
+        #                 icon = icon("calendar"), 
+        #                 color = "blue"
+        #         )
+        # })
+        # # Output valuebox2 ####
+        # output$project2 <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value = nrow(selectedData),
+        #                 subtitle = "Total number of project",
+        #                 icon = icon("list-ol"), 
+        #                 color = "purple"
+        #         )
+        # })
+        # output$money2 <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
+        #                 subtitle = "Total budget (in EUR)", 
+        #                 icon = icon("euro-sign"), 
+        #                 color = "yellow"
+        #         )
+        # })
+        # output$period2 <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value = max(selectedData$last.year.exp, na.rm = TRUE) - min(selectedData$X1st.year.exp, na.rm = TRUE), 
+        #                 subtitle = "Total period (years)", 
+        #                 icon = icon("calendar"), 
+        #                 color = "blue"
+        #         )
+        # })
+        # # Output valuebox3 ####
+        # output$project3 <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value = nrow(selectedData),
+        #                 subtitle = "Total number of project",
+        #                 icon = icon("list-ol"), 
+        #                 color = "purple"
+        #         )
+        # })
+        # output$money3 <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
+        #                 subtitle = "Total budget (in EUR)", 
+        #                 icon = icon("euro-sign"), 
+        #                 color = "yellow"
+        #         )
+        # })
+        # output$period3 <- renderValueBox({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         valueBox(
+        #                 value = max(selectedData$last.year.exp, na.rm = TRUE) - min(selectedData$X1st.year.exp, na.rm = TRUE), 
+        #                 subtitle = "Total period (years)", 
+        #                 icon = icon("calendar"), 
+        #                 color = "blue"
+        #         )
+        # })
+        # # Output cooperation ####
+        # output$coop <-renderPlotly({
+        #         selectedData <- all_country(COOPERATION)
+        #         coop <-plot_ly(selectedData,
+        #                        labels = ~ COOPERATION,
+        #                        values = ~ Count, 
+        #                        type ="pie",
+        #                        insidetextfont = list(color = "#FFFFFF"), 
+        #                        textfont = list(color = '#000000', size = 12)
+        #         ) %>%
+        #                 layout(
+        #                         legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
+        #                         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+        #                         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+        # })
+        # 
+        # # Output contractor ####
+        # output$contractor <-renderPlotly({
+        #         selectedData <- all_country(TOP_CONTRACTOR)
+        #         contractor <-plot_ly(selectedData,
+        #                              labels = ~ TOP_CONTRACTOR,
+        #                              values = ~ Count,
+        #                              type ="pie",
+        #                              insidetextfont = list(color = "#FFFFFF"), 
+        #                              textfont = list(color = '#000000', size = 12)
+        #         ) %>%
+        #                 layout(
+        #                         legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
+        #                         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+        #                         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+        # })
+        # 
+        # # Output funding ####
+        # output$budgetholder <-renderPlotly({
+        #         selectedData <- all_country(BUDGETHOLDER)
+        #         budget <-plot_ly(selectedData,
+        #                          labels = ~ BUDGETHOLDER,
+        #                          values = ~ Count,
+        #                          type ="pie",
+        #                          insidetextfont = list(color = "#FFFFFF"), 
+        #                          textfont = list(color = '#000000', size = 12)
+        #         ) %>%
+        #                 layout(
+        #                         legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
+        #                         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+        #                         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+        #         
+        # })
+        # 
+        # # Output aid ####
+        # output$aid <- renderPlotly({
+        #         selectedData <- all_country(TYPOLOGY)
+        #         aid <-plot_ly(selectedData,
+        #                       labels = ~ TYPOLOGY,
+        #                       values = ~ Count,
+        #                       type ="pie",
+        #                       insidetextfont = list(color = "#FFFFFF"), 
+        #                       textfont = list(color = '#000000', size = 12)
+        #         ) %>%
+        #                 layout(
+        #                         legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
+        #                         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+        #                         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+        # })
+        # 
+        # # Output budget ####
+        # output$budget <- renderPlotly({
+        #         selectedData <- all_country(BUDGET)
+        #         budget <-plot_ly(selectedData,
+        #                          labels = ~ BUDGET,
+        #                          values = ~ Count,
+        #                          type ="pie",
+        #                          insidetextfont = list(color = "#FFFFFF"), 
+        #                          textfont = list(color = '#000000', size = 12)
+        #         ) %>%
+        #                 layout(
+        #                         legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
+        #                         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+        #                         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+        # })
+        # # Output funding evolution ####
+        # output$allocation <-renderPlotly({
+        #         selectedData <- df()
+        #         if (df_country() == "All"){
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df()
+        #                 } else {
+        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         } else {
+        #                 if (df_year() == "All") {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
+        #                 } else {
+        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
+        #                 }
+        #         }
+        #         allocation <- aggregate(TOTAL_BUDGET~X1st.year.exp+BUDGETHOLDER, data = selectedData, sum)
+        #         colnames(allocation) <- c('Year', "Funding actors", "Budget")
+        #         allocation$Year <- as.factor(allocation$Year)
+        #         ggplotly(ggplot(allocation, aes(x = Year,  y = Budget, color = `Funding actors`, group = `Funding actors`)) +
+        #                          geom_point(size = 2)+
+        #                          geom_line(size = 1.1125)+
+        #                          theme_bw() +
+        #                          xlab("Year") +
+        #                          ylab("Budget allocation (in EUR)") +
+        #                          theme(text=element_text(family = "Arial")) +
+        #                          theme(axis.text.x = element_text(size = 9)) +
+        #                          theme(axis.text.y = element_text(size = 9)) +
+        #                          theme(axis.title = element_text(size = 10)) +
+        #                          theme(legend.title = element_text(size = 11)) +
+        #                          theme(legend.text = element_text(size = 10))
+        #                  )
+        # })
 }
 
 #### Run the application ####
