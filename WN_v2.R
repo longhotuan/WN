@@ -20,7 +20,7 @@ library(DT)
 library(usethis)
 library(feather)
 
-water_nexus <- read_feather("dgd_min.feather")
+water_nexus <- read_feather("dgd_min_v2.feather")
 
 first_country <- which(colnames(water_nexus) == 'Afghanistan')
 last_country <- which(colnames(water_nexus) == 'Palestine')
@@ -36,9 +36,14 @@ first_typology <- which(colnames(water_nexus) == 'Administrative costs not inclu
 last_typology <- which(colnames(water_nexus) == 'Sector budget support')
 first_sector <- which(colnames(water_nexus) == 'Agriculture and livestock - Agrarian reform')
 last_sector <- which(colnames(water_nexus) == 'Water supply and sanitation - Waste management/disposal')
+water_nexus$BUDGET[is.na(water_nexus$BUDGET)] <- "No Funding"
+water_nexus$BUDGET <- ordered(water_nexus$BUDGET, levels = c("No Funding", "Smaller than 100,000 euros", "Smaller than one million euros", 
+                                                             "Smaller than ten million euros", "Larger than ten million euros"),
+                              labels = c("No Funding", "Smaller than 100,000 euros", "Smaller than one million euros", 
+                                         "Smaller than ten million euros", "Larger than ten million euros"))
+
 
 #### ui #####
-
 ui <- dashboardPage(
         # Dashboard header ####
         dashboardHeader(title="Water Nexus dashboard"),
@@ -88,24 +93,11 @@ ui <- dashboardPage(
                                         )
                                 ),
                                 fluidRow(
-                                        box(title = "Project map", width = 12, 
+                                        box(title = "Project map (circle area proportional to the number of projects)", width = 12, 
                                             leafletOutput("map", width = "100%", height = 400)
                                         )
                                 )
                         ), # end tabItem of info tab
-                        # # Cooperation tab content (abandoned) ####
-                        # tabItem(tabName = "coop",
-                        #         fluidRow(
-                        #                 valueBoxOutput("project1"),
-                        #                 valueBoxOutput("money1"),
-                        #                 valueBoxOutput("period1")
-                        #         ),
-                        #         fluidRow(
-                        #                 box(title = "Type of cooperation", width = 12,
-                        #                     plotlyOutput("coop")
-                        #                 )
-                        #         )
-                        # ), # end of cooperation tab content
                         # Actor tab content ####
                         tabItem(tabName = "actor",
                                 fluidRow(
@@ -114,12 +106,12 @@ ui <- dashboardPage(
                                         valueBoxOutput("period1")
                                 ),
                                 fluidRow(
-                                        box(title = "Funding Actors", width = 12,
+                                        box(title = "Funding actors (Left: % of total project number; Right: % of total budget)", width = 12,
                                             plotlyOutput("budgetholder")
                                         )
                                 ),
                                 fluidRow(
-                                        box(title = "Implementing organisations/channels of delivery", width = 12,
+                                        box(title = "Implementing organisations/channels of delivery (Left: % of total project number; Right: % of total budget)", width = 12,
                                             plotlyOutput("contractor")
                                         )
                                 ),
@@ -137,12 +129,17 @@ ui <- dashboardPage(
                                         valueBoxOutput("period2")
                                 ),
                                 fluidRow(
-                                        box(title = "Type of aid", width = 12,
+                                        box(title = "Type of aid (Left: % of total project number; Right: % of total budget)", width = 12,
                                             plotlyOutput("aidtype")
                                         )
                                 ),
                                 fluidRow(
-                                        box(title = "Budget category", width = 12,
+                                        box(title = "Sector funding (Left: % of total project number; Right: % of total budget)", width = 12,
+                                            plotlyOutput("sectorfunding")
+                                        )
+                                ),
+                                fluidRow(
+                                        box(title = "Budget category (Left: % of total project number; Right: % of total budget)", width = 12,
                                             plotlyOutput("budget")
                                         )
                                 )
@@ -151,24 +148,24 @@ ui <- dashboardPage(
                         tabItem(tabName = "about",
                                 fluidRow(
                                         box(width = 12, 
-                                            h2("About the dashboard"),
+                                            h2("Projects in the Water Sector by Belgian Actors"),
                                             hr(),
-                                            h3("Projects in the Water Sector by Belgian Actors"),
-                                            br(),
-                                            h4("The Water Projects Dashboard is an interactive platform centralizing and displaying information about the water-related projects led by Belgian actors. This platform is  dynamic and aim to incorporate upcoming projects. So far, the platform mostly inventories the projects funded by the Belgian Ministry of Foreign Affairs, Development Cooperation and Humanitarian Aid (DGD) from 1998 to present days. However, we are building a broader database that includes projects funded by other funding organisms.")
+                                            h4("The Water Projects Dashboard is an interactive platform centralizing and displaying information about the water-related projects led by Belgian actors. So far, the platform only inventories the projects funded by the Belgian Ministry of Foreign Affairs, Development Cooperation and Humanitarian Aid (DGD). However, we are building a broader database that includes projects funded by other organisms. If you want to add the information about the projects funded/implemented by your organisation, please send us an email to ",
+                                            a("waternexusbelgium@gmail.com",
+                                                 href = "mailto: waternexusbelgium@gmail.com")),
+                                            h4("We aim to update the database on a regular basis.")
                                         )
                                 ),
                                 fluidRow(
                                         box(width = 12, 
                                             h2("About the dataset"),
                                             hr(),
-                                            h3("Dataset of Directorate-General for Development Cooperation and Humanitarian Aid"),
+                                            h3("Dataset of Belgian ODA projects"),
                                             br(),
-                                            h4("The dataset of Directorate-General for Development Cooperation and Humanitarian Aid (DGD) documents the 12.550 projects involved in the Belgian ODA flows from 1987 to 2018. The dataset focuses on projects working in the water sector which can involve in multidisciplinary themes. Hence, projects with themes related environment, agriculture, fisheries, forestry, and hydroelectricity are included in the dataset. The dataset contains in total 191 attributes which are characteristics of any projects that have cooperation with DGD. The attributes cover from basic information of the projects, e.g. title, year, period, etc., to specific properties of the projects, i.e. scale of their involvement with respect to Sustainable Development Goals (SDGs), target groups, reached results, etc. However, due to substantial missing values, only main attributes are exploited in this dashboard."),
-                                            br(),
-                                            h4("Besides this dataset, a broader database that includes projects funded by other funding organizations, such as VLIR-UOS, ARES, VPWvO, Enabel, etc., is being developed. If you want to add the information about the projects funded/implemented by your organisation, please send us an email to: ",
-                                               a("waternexusbelgium@gmail.com",
-                                                 href = "mailto: waternexusbelgium@gmail.com"))
+                                            h4("The dataset of Belgian ODA is compiled by the Directorate-General for Development Cooperation and Humanitarian Aid (DGD) and documents projects supported by the in the Belgian ODA flows from 2008 to 2019. Information on projects prior to 2008 can be requested at ",
+                                               a("prisma@diplobel.org",
+                                                 href = "mailto: prisma@diplobel.org")),
+                                            h4("Datasets from other funding sources and organisation will be added in the future.")
                                         )
                                 ),
                                 fluidRow(
@@ -202,7 +199,6 @@ ui <- dashboardPage(
 ) # end dashboardpage
 
 #### server ####
-
 server <- function(input, output, session) {
         # Setting reactivities ####
         df <- reactive({water_nexus})
@@ -502,8 +498,8 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = nrow(selected_df),
-                        subtitle = "Total number of project",
+                        value = nrow(is.na(selected_df)),
+                        subtitle = "Total number of projects",
                         icon = icon("list-ol"),
                         color = "purple"
                 )
@@ -733,7 +729,7 @@ server <- function(input, output, session) {
                 }
                 valueBox(
                         value = max(selected_df$`last-year-exp`, na.rm = TRUE) - min(selected_df$`first-year-exp`, na.rm = TRUE),
-                        subtitle = "Total period (years)",
+                        subtitle = "Period (years)",
                         icon = icon("calendar"),
                         color = "blue"
                 )
@@ -848,8 +844,8 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = nrow(selected_df),
-                        subtitle = "Total number of project",
+                        value = nrow(is.na(selected_df)),
+                        subtitle = "Total number of projects",
                         icon = icon("list-ol"),
                         color = "purple"
                 )
@@ -1079,7 +1075,7 @@ server <- function(input, output, session) {
                 }
                 valueBox(
                         value = max(selected_df$`last-year-exp`, na.rm = TRUE) - min(selected_df$`first-year-exp`, na.rm = TRUE),
-                        subtitle = "Total period (years)",
+                        subtitle = "Period (years)",
                         icon = icon("calendar"),
                         color = "blue"
                 )
@@ -1194,8 +1190,8 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = nrow(selected_df),
-                        subtitle = "Total number of project",
+                        value = nrow(is.na(selected_df)),
+                        subtitle = "Total number of projects",
                         icon = icon("list-ol"),
                         color = "purple"
                 )
@@ -1425,78 +1421,11 @@ server <- function(input, output, session) {
                 }
                 valueBox(
                         value = max(selected_df$`last-year-exp`, na.rm = TRUE) - min(selected_df$`first-year-exp`, na.rm = TRUE),
-                        subtitle = "Total period (years)",
+                        subtitle = "Period (years)",
                         icon = icon("calendar"),
                         color = "blue"
                 )
         })
-        # # Output valuebox3 (abandoned) ####
-        # output$project3 <- renderValueBox({
-        #         selectedData <- df()
-        #         if (df_country() == "All"){
-        #                 if (df_year() == "All") {
-        #                         selectedData <- df()
-        #                 } else {
-        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-        #                 }
-        #         } else {
-        #                 if (df_year() == "All") {
-        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
-        #                 } else {
-        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-        #                 }
-        #         }
-        #         valueBox(
-        #                 value = nrow(selectedData),
-        #                 subtitle = "Total number of project",
-        #                 icon = icon("list-ol"), 
-        #                 color = "purple"
-        #         )
-        # })
-        # output$money3 <- renderValueBox({
-        #         selectedData <- df()
-        #         if (df_country() == "All"){
-        #                 if (df_year() == "All") {
-        #                         selectedData <- df()
-        #                 } else {
-        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-        #                 }
-        #         } else {
-        #                 if (df_year() == "All") {
-        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
-        #                 } else {
-        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-        #                 }
-        #         }
-        #         valueBox(
-        #                 value =  prettyNum(sum(selectedData$TOTAL_BUDGET, na.rm = TRUE), big.mark = ","),
-        #                 subtitle = "Total budget (in EUR)", 
-        #                 icon = icon("euro-sign"), 
-        #                 color = "yellow"
-        #         )
-        # })
-        # output$period3 <- renderValueBox({
-        #         selectedData <- df()
-        #         if (df_country() == "All"){
-        #                 if (df_year() == "All") {
-        #                         selectedData <- df()
-        #                 } else {
-        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp))
-        #                 }
-        #         } else {
-        #                 if (df_year() == "All") {
-        #                         selectedData <- df() %>% filter(COUNTRY == df_country())
-        #                 } else {
-        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp))
-        #                 }
-        #         }
-        #         valueBox(
-        #                 value = max(selectedData$last.year.exp, na.rm = TRUE) - min(selectedData$X1st.year.exp, na.rm = TRUE), 
-        #                 subtitle = "Total period (years)", 
-        #                 icon = icon("calendar"), 
-        #                 color = "blue"
-        #         )
-        # })
         # Output table in info tab ####
         output$table <- DT::renderDataTable(
                 server = FALSE,
@@ -1610,7 +1539,7 @@ server <- function(input, output, session) {
                         }
                         description_df <- selected_df[, which(colnames(selected_df) == "BACKGROUND (IN)"):which(colnames(selected_df) == "RESULTS_OUTPUT (CO)")] %>% 
                                 tidyr::unite(Description, remove = TRUE, sep = ". ", na.rm = TRUE)
-                        selected_df <- selected_df %>% select(TITLE_GLOBAL, COUNTRY, TYPOLOGY, CONTRACTOR, TOTAL_BUDGET, `TOP SECTOR`, `first-year-exp`,`last-year-exp`)
+                        selected_df <- selected_df %>% select(TITLE_GLOBAL, COUNTRY, TYPOLOGY, CONTRACTOR, TOTAL_BUDGET, SECTOR, `first-year-exp`,`last-year-exp`)
                         selected_df <- bind_cols(selected_df, description_df)
                         colnames(selected_df) <- c("Title", "Funded countries", "Type of aids", "Contractors", "Budget (in EUR)", 
                                                    "Sectors", "First year", "Last year", "Description")
@@ -1631,7 +1560,7 @@ server <- function(input, output, session) {
 
 
                 })
-        # Output map in info tab####
+        # Output map in info tab ####
         output$map <- renderLeaflet({
                 tilesURL <- '//server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
                 colors <- brewer.pal(n = 7, name = "Dark2")
@@ -1759,44 +1688,6 @@ server <- function(input, output, session) {
                                       transitionTime = 0)
         })
 
-        # # Function for choosing different country and time (abandoned) ####
-        # all_country <- function(x){
-        #         x <- enquo(x)
-        #         if (df_country() == "All"){
-        #                 if (df_year() == "All") {
-        #                         selectedData <- df() %>% group_by(!!x) %>% summarise(Count = n()) %>%
-        #                                 arrange(desc(Count)) %>% ungroup()
-        #                 } else {
-        #                         selectedData <- df() %>% filter(between(df_year(), X1st.year.exp, last.year.exp)) %>% group_by(!!x) %>%
-        #                                 summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
-        #                 }
-        #         } else {
-        #                 if (df_year() == "All") {
-        #                         selectedData <- df() %>% filter(COUNTRY == df_country()) %>% group_by(!!x) %>%
-        #                                 summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
-        #                 } else {
-        #                         selectedData <- df() %>% filter(COUNTRY == df_country() & between(df_year(), X1st.year.exp, last.year.exp)) %>%
-        #                                 group_by(!!x) %>% summarise(Count = n()) %>% arrange(desc(Count)) %>% ungroup()
-        #                 }
-        #         }
-        #         return(selectedData)
-        # }
-        # # Output cooperation in cooperation tab (abandoned) ####
-        # output$coop <-renderPlotly({
-        #         selectedData <- all_country(COOPERATION)
-        #         coop <-plot_ly(selectedData,
-        #                        labels = ~ COOPERATION,
-        #                        values = ~ Count, 
-        #                        type ="pie",
-        #                        insidetextfont = list(color = "#FFFFFF"), 
-        #                        textfont = list(color = '#000000', size = 12)
-        #         ) %>%
-        #                 layout(
-        #                         legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
-        #                         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-        #                         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-        # })
-        # 
         # Output budgetholder~funding actors in actors tab ####
         output$budgetholder <-renderPlotly({
                 if(df_country() == "All"){
@@ -1914,10 +1805,20 @@ server <- function(input, output, session) {
                         dplyr::mutate(Percentage = TOTAL_BUDGET*100/sum(TOTAL_BUDGET)) %>%
                         dplyr::arrange(desc(TOTAL_BUDGET))
                 df <- dplyr::inner_join(df, df2)
+                
+                df$BUDGETHOLDER <- ordered(df$BUDGETHOLDER, levels = c("DGD", "FPS Economy, Nat. Bank, lotery", "FPS Health", "FPS FIN", 
+                                                                                         "FPS FA", "Region of Brussels", "Region of Flanders", "Region of Wallonia", 
+                                                                                         "German community", "Provinces of Flanders", "Provinces of Wallonia",
+                                                                                         "Municipalities of Brussels", "Municipalities of Flanders"),
+                                                    labels = c("DGD", "FPS Economy, Nat. Bank, lotery", "FPS Health", "FPS FIN", 
+                                                               "FPS FA", "Region of Brussels", "Region of Flanders", "Region of Wallonia", 
+                                                               "German community", "Provinces of Flanders", "Provinces of Wallonia",
+                                                               "Municipalities of Brussels", "Municipalities of Flanders"))
                 p <- plot_ly(data = df,
                              labels = ~ BUDGETHOLDER,
                              values = ~ Count,
                              type ="pie",
+                             sort = FALSE,
                              insidetextfont = list(color = "#FFFFFF"),
                              name = "% project",
                              textfont = list(color = '#000000', size = 12),
@@ -1926,6 +1827,7 @@ server <- function(input, output, session) {
                                 labels = ~ BUDGETHOLDER,
                                 values = ~ TOTAL_BUDGET,
                                 type ="pie",
+                                sort = FALSE,
                                 insidetextfont = list(color = "#FFFFFF"),
                                 name = "% budget",
                                 textfont = list(color = '#000000', size = 12),
@@ -2346,6 +2248,145 @@ server <- function(input, output, session) {
                 p
         })
 
+        # Output budget~ Sector funding in budgets tab ####
+        output$sectorfunding <- renderPlotly({
+                if(df_country() == "All"){
+                        selected_df3 <- df()
+                        if(df_year() == "All"){
+                                if(df_sector() == "All"){
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df3
+                                        } else {
+                                                selected_df <- selected_df3[selected_df3$TYPOLOGY == df_aid(),]
+                                        }
+                                } else {
+                                        selected_df2 <- selected_df3[!is.na(selected_df3[, colnames(selected_df3) == df_sector()]),]
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df2
+                                        } else {
+                                                selected_df <- selected_df2[selected_df2$TYPOLOGY == df_aid(),]
+                                        }
+                                }
+                        } else {
+                                selected_df1 <- selected_df3[!is.na(selected_df3[, colnames(selected_df3) == df_year()]),]
+                                if(df_sector() == "All"){
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df1
+                                        } else {
+                                                selected_df <- selected_df1[selected_df1$TYPOLOGY == df_aid(),]
+                                        }
+                                } else {
+                                        selected_df2 <- selected_df1[!is.na(selected_df1[, colnames(selected_df1) == df_sector()]),]
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df2
+                                        } else {
+                                                selected_df <- selected_df2[selected_df2$TYPOLOGY == df_aid(),]
+                                        }
+                                }
+                        }
+                } else if(df_country() == "Partner countries"){
+                        m <-df()[, which(colnames(df()) %in% c("Benin", "Burkina Faso", "Burundi", "DR Congo", "Guinea", "Mali", "Morocco", 
+                                                               "Mozambique", "Niger", "Uganda", "Palestine", "Rwanda", "Senegal", "Tanzania"))] # choose column having the same names
+                        selected_df3 <- df()[rowSums(is.na(m)) != ncol(m), ] # make sure the chosen column not entire NA 
+                        selected_df3 <- selected_df3[complete.cases(selected_df3[ ,1]),] # remove the one that has NA in all row
+                        
+                        if(df_year() == "All"){
+                                if(df_sector() == "All"){
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df3
+                                        } else {
+                                                selected_df <- selected_df3[selected_df3$TYPOLOGY == df_aid(),]
+                                        }
+                                } else {
+                                        selected_df2 <- selected_df3[!is.na(selected_df3[, colnames(selected_df3) == df_sector()]),]
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df2
+                                        } else {
+                                                selected_df <- selected_df2[selected_df2$TYPOLOGY == df_aid(),]
+                                        }
+                                }
+                        } else {
+                                selected_df1 <- selected_df3[!is.na(selected_df3[, colnames(selected_df3) == df_year()]),]
+                                if(df_sector() == "All"){
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df1
+                                        } else {
+                                                selected_df <- selected_df1[selected_df1$TYPOLOGY == df_aid(),]
+                                        }
+                                } else {
+                                        selected_df2 <- selected_df1[!is.na(selected_df1[, colnames(selected_df1) == df_sector()]),]
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df2
+                                        } else {
+                                                selected_df <- selected_df2[selected_df2$TYPOLOGY == df_aid(),]
+                                        }
+                                }
+                        }
+                } else {
+                        selected_df3 <- df()[!is.na(df()[, colnames(df()) == df_country()]),]
+                        if(df_year() == "All"){
+                                if(df_sector() == "All"){
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df3
+                                        } else {
+                                                selected_df <- selected_df3[selected_df3$TYPOLOGY == df_aid(),]
+                                        }
+                                } else {
+                                        selected_df2 <- selected_df3[!is.na(selected_df3[, colnames(selected_df3) == df_sector()]),]
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df2
+                                        } else {
+                                                selected_df <- selected_df2[selected_df2$TYPOLOGY == df_aid(),]
+                                        }
+                                }
+                        } else {
+                                selected_df1 <- selected_df3[!is.na(selected_df3[, colnames(selected_df3) == df_year()]),]
+                                if(df_sector() == "All"){
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df1
+                                        } else {
+                                                selected_df <- selected_df1[selected_df1$TYPOLOGY == df_aid(),]
+                                        }
+                                } else {
+                                        selected_df2 <- selected_df1[!is.na(selected_df1[, colnames(selected_df1) == df_sector()]),]
+                                        if(df_aid() == "All"){
+                                                selected_df <- selected_df2
+                                        } else {
+                                                selected_df <- selected_df2[selected_df2$TYPOLOGY == df_aid(),]
+                                        }
+                                }
+                        }
+                }
+                df <- selected_df %>% dplyr::group_by(`TOP SECTOR`) %>%
+                        dplyr::summarise(Count = n()) %>% 
+                        dplyr::arrange(desc(Count))
+                selected_df$TOTAL_BUDGET[is.na(selected_df$TOTAL_BUDGET)] <- 0
+                df2 <- aggregate(data = selected_df, TOTAL_BUDGET ~ `TOP SECTOR`, FUN = sum) %>%
+                        dplyr::mutate(Percentage = TOTAL_BUDGET*100/sum(TOTAL_BUDGET)) %>%
+                        dplyr::arrange(desc(TOTAL_BUDGET))
+                df <- dplyr::inner_join(df, df2)
+                p <- plot_ly(data = df,
+                             labels = ~ `TOP SECTOR`,
+                             values = ~ Count,
+                             type ="pie",
+                             insidetextfont = list(color = "#FFFFFF"),
+                             name = "% project",
+                             textfont = list(color = '#000000', size = 12),
+                             domain = list(x = c(0, 0.5), y = c(0, 1))) %>%
+                        add_pie(data = df,
+                                labels = ~ `TOP SECTOR`,
+                                values = ~ TOTAL_BUDGET,
+                                type ="pie",
+                                insidetextfont = list(color = "#FFFFFF"),
+                                name = "% budget",
+                                textfont = list(color = '#000000', size = 12),
+                                domain = list(x = c(0.5, 1), y = c(0, 1))) %>%
+                        layout(legend = list(orientation = 'h', font = list(size = 11), xanchor = "center", x = 0.5),
+                               grid=list(rows=1, columns=2),
+                               xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                               yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+                p
+        })
         # Output budget~ Budget category in budgets tab ####
         output$budget <- renderPlotly({
                 if(df_country() == "All"){
@@ -2456,17 +2497,16 @@ server <- function(input, output, session) {
                         }
                 }
                 df <- selected_df %>% dplyr::group_by(BUDGET) %>%
-                        dplyr::summarise(Count = n()) %>% 
-                        dplyr::arrange(desc(Count))
+                        dplyr::summarise(Count = n())
                 selected_df$TOTAL_BUDGET[is.na(selected_df$TOTAL_BUDGET)] <- 0
                 df2 <- aggregate(data = selected_df, TOTAL_BUDGET ~ BUDGET, FUN = sum) %>%
-                        dplyr::mutate(Percentage = TOTAL_BUDGET*100/sum(TOTAL_BUDGET)) %>%
-                        dplyr::arrange(desc(TOTAL_BUDGET))
+                        dplyr::mutate(Percentage = TOTAL_BUDGET*100/sum(TOTAL_BUDGET)) 
                 df <- dplyr::inner_join(df, df2)
                 p <- plot_ly(data = df,
                              labels = ~ BUDGET,
                              values = ~ Count,
                              type ="pie",
+                             sort = FALSE,
                              insidetextfont = list(color = "#FFFFFF"),
                              name = "% project",
                              textfont = list(color = '#000000', size = 12),
@@ -2475,6 +2515,7 @@ server <- function(input, output, session) {
                                 labels = ~ BUDGET,
                                 values = ~ TOTAL_BUDGET,
                                 type ="pie",
+                                sort = FALSE,
                                 insidetextfont = list(color = "#FFFFFF"),
                                 name = "% budget",
                                 textfont = list(color = '#000000', size = 12),
