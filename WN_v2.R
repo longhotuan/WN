@@ -93,7 +93,7 @@ ui <- dashboardPage(
                                         )
                                 ),
                                 fluidRow(
-                                        box(title = "Project map (circle area proportional to the number of projects)", width = 12, 
+                                        box(title = "Project map (circles' area proportional to the number of projects)", width = 12, 
                                             leafletOutput("map", width = "100%", height = 400)
                                         )
                                 )
@@ -106,12 +106,12 @@ ui <- dashboardPage(
                                         valueBoxOutput("period1")
                                 ),
                                 fluidRow(
-                                        box(title = "Funding actors (Left: % of total project number; Right: % of total budget)", width = 12,
+                                        box(title = "Funding actors (Left: Share of total number of project (%); Right: Share of budget of all projects (%))", width = 12,
                                             plotlyOutput("budgetholder")
                                         )
                                 ),
                                 fluidRow(
-                                        box(title = "Implementing organisations/channels of delivery (Left: % of total project number; Right: % of total budget)", width = 12,
+                                        box(title = "Implementing organisations/channels of delivery (Left: Share of total number of project (%); Right: Share of budget of all projects (%))", width = 12,
                                             plotlyOutput("contractor")
                                         )
                                 ),
@@ -129,17 +129,17 @@ ui <- dashboardPage(
                                         valueBoxOutput("period2")
                                 ),
                                 fluidRow(
-                                        box(title = "Type of aid (Left: % of total project number; Right: % of total budget)", width = 12,
+                                        box(title = "Type of aids (Left: Share of total number of project (%); Right: Share of budget of all projects (%))", width = 12,
                                             plotlyOutput("aidtype")
                                         )
                                 ),
                                 fluidRow(
-                                        box(title = "Sector funding (Left: % of total project number; Right: % of total budget)", width = 12,
+                                        box(title = "Funding Sectors (Left: Share of total number of project (%); Right: Share of budget of all projects (%))", width = 12,
                                             plotlyOutput("sectorfunding")
                                         )
                                 ),
                                 fluidRow(
-                                        box(title = "Budget category (Left: % of total project number; Right: % of total budget)", width = 12,
+                                        box(title = "Budget categories (Left: Share of total number of project (%); Right: Share of budget of all projects (%))", width = 12,
                                             plotlyOutput("budget")
                                         )
                                 )
@@ -498,7 +498,7 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = nrow(is.na(selected_df)),
+                        value = prettyNum(nrow(is.na(selected_df)), big.mark = ","),
                         subtitle = "Total number of projects",
                         icon = icon("list-ol"),
                         color = "purple"
@@ -844,7 +844,7 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = nrow(is.na(selected_df)),
+                        value = prettyNum(nrow(is.na(selected_df)), big.mark = ","),
                         subtitle = "Total number of projects",
                         icon = icon("list-ol"),
                         color = "purple"
@@ -1190,7 +1190,7 @@ server <- function(input, output, session) {
                         }
                 }
                 valueBox(
-                        value = nrow(is.na(selected_df)),
+                        value = prettyNum(nrow(is.na(selected_df)), big.mark = ","),
                         subtitle = "Total number of projects",
                         icon = icon("list-ol"),
                         color = "purple"
